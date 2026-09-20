@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from functools import wraps
 
 from telegram import Update
@@ -9,6 +10,8 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from . import ai, config
+from .curriculum.exams import Exam, ExamItem, KINDS, build_exam, dump_exam, load_questions, shuffle_question
+from .curriculum.grammar_rules import get_rule
 from .curriculum.lessons import LESSONS, get_lesson, lessons_for_level, next_lesson
 from .curriculum.levels import LEVEL_META, LEVELS
 from .curriculum.models import Question
@@ -27,8 +30,10 @@ from .keyboards import (
     BTN_PRACTICE,
     BTN_PROGRESS,
     BTN_READ,
+    BTN_RULES,
     BTN_SETTINGS,
     BTN_SPEAK,
+    BTN_TEST,
     BTN_TUTOR,
     BTN_VOCAB,
     BTN_WRITE,
@@ -36,6 +41,8 @@ from .keyboards import (
     after_teach_kb,
     course_kb,
     done_kb,
+    exam_done_kb,
+    exam_kb,
     home_kb,
     ielts_kb,
     level_lessons_kb,
@@ -45,6 +52,8 @@ from .keyboards import (
     onboarding_kb,
     practice_kb,
     reveal_kb,
+    rule_open_kb,
+    rules_kb,
     settings_kb,
     stop_kb,
     vocab_rate_kb,
@@ -73,6 +82,7 @@ XP_VOCAB = 6
 XP_WRITE = 35
 XP_SPEAK = 35
 XP_PLACE = 20
+XP_EXAM = 50
 
 
 def store_of(ctx: ContextTypes.DEFAULT_TYPE) -> Store:
@@ -207,16 +217,20 @@ async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             row,
             "<b>How to learn</b>\n"
             "▶ Continue — next lesson in your course\n"
+            "📝 Test — a new paper every time\n"
+            "📘 Rules — basic grammar (A1–A2)\n"
             "🗺 Course — every unit, locked until you finish the one before\n"
             "🎯 Practice — words, grammar, reading, writing, speaking, IELTS\n"
             "💬 Tutor — chat and get corrections\n\n"
-            "/menu /stats /level /cancel",
+            "/test /rules /menu /stats /level /cancel",
             "<b>কীভাবে শিখবেন</b>\n"
             "▶ Continue — পরের পাঠ\n"
+            "📝 Test — প্রতিবার নতুন প্রশ্নপত্র\n"
+            "📘 Rules — বেসিক গ্রামার\n"
             "🗺 Course — পুরো কোর্স ম্যাপ\n"
             "🎯 Practice — শব্দ, গ্রামার, পড়া, লেখা, কথা, IELTS\n"
             "💬 Tutor — কথা বলে শুধরে নিন\n\n"
-            "/menu /stats /level /cancel",
+            "/test /rules /menu /stats /level /cancel",
         ),
         home_kb(),
     )
@@ -242,6 +256,18 @@ async def cmd_level(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 @guard
 async def cmd_stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await send_me(update, ctx)
+
+
+@guard
+async def cmd_test(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    store_of(ctx).set_mode(uid_of(update), "idle")
+    await send_test_hub(update, ctx)
+
+
+@guard
+async def cmd_rules(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    store_of(ctx).set_mode(uid_of(update), "idle")
+    await send_rules(update, ctx)
 
 
 async def send_home(update: Update, ctx: ContextTypes.DEFAULT_TYPE, edit: bool | None = None) -> None:
@@ -275,8 +301,13 @@ async def send_me(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         f"🎯 IELTS goal  {esc(str(row['goal_band']))}  (now ~{LEVEL_META[level]['ielts']})\n"
         f"✅ quiz accuracy  {right}/{total} ({pct})\n"
         f"🧠 words due  {due}/{cards}\n"
-        f"{next_track_line(level)}"
     )
+    past = db.list_exams(tid, 3)
+    if past:
+        text += "\n<b>Last tests</b>\n" + "\n".join(
+            f"<code>{esc(p['exam_id'])}</code>  {p['score']}/{p['total']}" for p in past
+        )
+    text += f"\n{next_track_line(level)}"
     await send_html(update, text, home_kb())
 
 
@@ -301,6 +332,120 @@ async def send_practice(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         ),
         practice_kb(),
     )
+
+
+def _exam_grade(score: int, total: int) -> str:
+    pct = round(100 * score / total) if total else 0
+    if pct >= 90:
+        return "Distinction"
+    if pct >= 75:
+        return "Merit"
+    if pct >= 50:
+        return "Pass"
+    return "Keep practising"
+
+
+async def send_test_hub(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    db = store_of(ctx)
+    row = user_row(update, ctx)
+    tid = uid_of(update)
+    past = db.list_exams(tid, 5)
+    lines = [
+        f"<b>{tr(row, 'Take a test', 'টেস্ট দিন')}</b>",
+        tr(
+            row,
+            "Every paper is different — new questions and shuffled answers. Your last papers are not reused first.",
+            "প্রতিবার নতুন প্রশ্নপত্র। আগের টেস্টের প্রশ্ন আগে আসবে না।",
+        ),
+        f"\n{LEVEL_EMOJI.get(row['level'], '📘')}  {tr(row, 'Your level', 'আপনার লেভেল')}: <b>{row['level']}</b>",
+    ]
+    if past:
+        lines.append(f"\n<b>{tr(row, 'Recent papers', 'সাম্প্রতিক প্রশ্নপত্র')}</b>")
+        for item in past:
+            lines.append(
+                f"<code>{esc(item['exam_id'])}</code>  {item['kind']}  {item['level']}  "
+                f"{item['score']}/{item['total']}"
+            )
+    await send_html(update, "\n".join(lines), exam_kb())
+
+
+async def start_exam(update: Update, ctx: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+    if kind not in KINDS:
+        kind = "quick"
+    db = store_of(ctx)
+    tid = uid_of(update)
+    row = user_row(update, ctx)
+    seed = f"{tid}:{kind}:{row['level']}:{time.time_ns()}:{db.exam_count(tid)}"
+    exam = build_exam(row["level"], kind, seed, db.recent_exam_item_ids(tid))
+    payload = dump_exam(exam)
+    db.set_mode(tid, "exam", payload)
+    title = f"Test {exam.exam_id}"
+    intro = tr(
+        row,
+        f"Paper <b>{exam.exam_id}</b>  ·  {len(exam.items)} questions\nThis mix will not appear again the same way.",
+        f"প্রশ্নপত্র <b>{exam.exam_id}</b>  ·  {len(exam.items)}টা প্রশ্ন\nএই মিক্স আর একইভাবে আসবে না।",
+    )
+    await send_html(update, intro)
+    await send_current_q(update, ctx, load_questions(payload), 0, title)
+
+
+async def send_rules(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    row = user_row(update, ctx)
+    await send_html(
+        update,
+        tr(
+            row,
+            "<b>Basic grammar rules</b>\n"
+            "A1–A2 cards. Tap a rule, read it, then try 3 questions "
+            "(order and options change each time).",
+            "<b>বেসিক গ্রামার রুলস</b>\n"
+            "A1–A2। একটি রুল খুলুন, পড়ুন, তারপর ৩টা প্রশ্ন "
+            "(প্রতিবার নতুন অর্ডার)।",
+        ),
+        rules_kb(),
+    )
+
+
+async def open_rule(update: Update, ctx: ContextTypes.DEFAULT_TYPE, rule_id: str) -> None:
+    rule = get_rule(rule_id)
+    if not rule:
+        await send_rules(update, ctx)
+        return
+    row = user_row(update, ctx)
+    title = f"<b>{esc(rule.title)}</b>"
+    if is_bangla(row):
+        title += f"\n<i>{esc(rule.title_bn)}</i>"
+    await send_html(update, f"{title}\n\n{rule.body}", rule_open_kb(rule.id), edit=False)
+
+
+async def start_rule_quiz(update: Update, ctx: ContextTypes.DEFAULT_TYPE, rule_id: str) -> None:
+    import random
+
+    rule = get_rule(rule_id)
+    if not rule:
+        await send_rules(update, ctx)
+        return
+    db = store_of(ctx)
+    tid = uid_of(update)
+    row = user_row(update, ctx)
+    seed = f"{tid}:rule:{rule_id}:{time.time_ns()}"
+    rng = random.Random(seed)
+    qs = list(rule.questions)
+    rng.shuffle(qs)
+    items = tuple(
+        ExamItem(id=f"rule-{rule_id}-{i}", level="A1", question=shuffle_question(q, rng))
+        for i, q in enumerate(qs)
+    )
+    exam = Exam(exam_id=_short_code(seed), kind="rule", level=row["level"], seed=seed, items=items)
+    payload = dump_exam(exam)
+    db.set_mode(tid, "exam", payload)
+    await send_current_q(update, ctx, load_questions(payload), 0, rule.title)
+
+
+def _short_code(seed: str) -> str:
+    from .curriculum.exams import _code
+
+    return _code(seed)
 
 
 # --------------------------------------------------------------------------- quizzes
@@ -358,6 +503,12 @@ def _quiz_bank(mode: str, payload: dict) -> tuple[tuple[Question, ...] | list[Qu
         if not reading:
             return None
         return reading.questions, reading.title, "reading", reading.id
+    if mode == "exam":
+        questions = load_questions(payload)
+        title = f"Test {payload.get('exam_id', '')}"
+        if payload.get("kind") == "rule":
+            title = "Grammar check"
+        return questions, title, "exam", str(payload.get("exam_id") or "exam")
     return None
 
 
@@ -441,6 +592,27 @@ async def advance_quiz(update: Update, ctx: ContextTypes.DEFAULT_TYPE, raw: str)
                 result + "\n────────\n" + result_card(lesson.title.split("—")[0].strip(), score, total, XP_LESSON, extra),
                 done_kb(lesson.level),
             )
+        return
+    if mode == "exam":
+        exam_id = str(payload.get("exam_id") or "EL")
+        kind = str(payload.get("kind") or "quick")
+        level = str(payload.get("level") or row["level"])
+        item_ids = [str(it.get("id")) for it in (payload.get("items") or [])]
+        db.save_exam(tid, exam_id, kind, level, score, total, item_ids)
+        db.add_xp(tid, XP_EXAM)
+        extra = (
+            f"\nPaper <code>{esc(exam_id)}</code>  ·  {_exam_grade(score, total)}\n"
+            + tr(
+                row,
+                "Take another test — you will get a different paper.",
+                "আবার টেস্ট দিন — নতুন প্রশ্নপত্র পাবেন।",
+            )
+        )
+        await send_html(
+            update,
+            result + "\n────────\n" + result_card(f"Test {exam_id}", score, total, XP_EXAM, extra),
+            exam_done_kb(),
+        )
         return
     await send_html(update, result + "\n────────\n" + result_card(title, score, total, score * XP_Q), done_kb())
 
@@ -725,7 +897,9 @@ async def handle_chat(update: Update, ctx: ContextTypes.DEFAULT_TYPE, text: str)
 def _route_button(text: str) -> str | None:
     mapping = {
         BTN_CONTINUE: "m:continue",
+        BTN_TEST: "m:test",
         BTN_COURSE: "m:map",
+        BTN_RULES: "m:rules",
         BTN_PRACTICE: "m:practice",
         BTN_TUTOR: "m:tutor",
         BTN_ME: "m:me",
@@ -760,7 +934,7 @@ async def on_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         return
 
     mode = row["mode"]
-    if mode in {"placement", "lesson_quiz", "grammar", "reading"}:
+    if mode in {"placement", "lesson_quiz", "grammar", "reading", "exam"}:
         await advance_quiz(update, ctx, text)
         return
     if mode == "writing":
@@ -813,6 +987,21 @@ async def dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE, data: str) ->
         return
     if data == "m:practice":
         await send_practice(update, ctx)
+        return
+    if data == "m:test":
+        await send_test_hub(update, ctx)
+        return
+    if data == "m:rules":
+        await send_rules(update, ctx)
+        return
+    if data.startswith("t:") and data.split(":", 1)[1] in KINDS:
+        await start_exam(update, ctx, data.split(":", 1)[1])
+        return
+    if data.startswith("ruleq:"):
+        await start_rule_quiz(update, ctx, data.split(":", 1)[1])
+        return
+    if data.startswith("rule:"):
+        await open_rule(update, ctx, data.split(":", 1)[1])
         return
     if data == "m:tutor":
         await start_tutor(update, ctx)

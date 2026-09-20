@@ -45,4 +45,10 @@ def test_store_user_and_cards() -> None:
         db.log_attempt(1, "lesson", "a1-01:0", True)
         right, n = db.accuracy(1)
         assert (right, n) == (1, 1)
+        db.save_exam(1, "EL-TEST1", "quick", "A1", 8, 10, ["a1-01:0", "ex-a1-02"])
+        db.save_exam(1, "EL-TEST2", "basic", "A1", 10, 12, ["ex-a1-03"])
+        past = db.list_exams(1, 5)
+        assert past[0]["exam_id"] == "EL-TEST2"
+        assert "a1-01:0" in db.recent_exam_item_ids(1)
+        assert db.exam_count(1) == 2
         db.close()

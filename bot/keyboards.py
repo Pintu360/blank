@@ -8,7 +8,9 @@ from .curriculum.models import Question
 from .ui import LEVEL_EMOJI, lesson_unlocked
 
 BTN_CONTINUE = "▶ Continue"
+BTN_TEST = "📝 Test"
 BTN_COURSE = "🗺 Course"
+BTN_RULES = "📘 Rules"
 BTN_PRACTICE = "🎯 Practice"
 BTN_TUTOR = "💬 Tutor"
 BTN_ME = "👤 Me"
@@ -26,9 +28,10 @@ BTN_SETTINGS = "⚙️ Settings"
 BTN_MENU = "🏠 Menu"
 
 MAIN_ROWS = (
-    (BTN_CONTINUE,),
-    (BTN_COURSE, BTN_PRACTICE),
-    (BTN_TUTOR, BTN_ME),
+    (BTN_CONTINUE, BTN_TEST),
+    (BTN_COURSE, BTN_RULES),
+    (BTN_PRACTICE, BTN_TUTOR),
+    (BTN_ME,),
 )
 
 MAIN_KEYBOARD = ReplyKeyboardMarkup(MAIN_ROWS, resize_keyboard=True, is_persistent=True)
@@ -59,6 +62,7 @@ def home_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [B("▶  Continue lesson", "m:continue")],
+            [B("📝  Take a test", "m:test"), B("📘  Grammar rules", "m:rules")],
             [B("🗺  Course map", "m:map"), B("🎯  Practice", "m:practice")],
             [B("💬  Tutor", "m:tutor"), B("👤  Progress", "m:me")],
             [B("⚙️  Settings", "m:set")],
@@ -176,6 +180,7 @@ def practice_kb() -> InlineKeyboardMarkup:
             [B("📖  Reading", "p:read"), B("🎧  Listen & read", "p:listen")],
             [B("✍️  Writing", "p:write"), B("🗣️  Speaking", "p:speak")],
             [B("🏆  IELTS gym", "p:ielts")],
+            [B("📝  Take a test", "m:test"), B("📘  Grammar rules", "m:rules")],
             [B("🏠 Home", "m:home")],
         ]
     )
@@ -203,6 +208,46 @@ def ielts_kb() -> InlineKeyboardMarkup:
             [B("✍️  Task 1", "il:t1"), B("✍️  Task 2", "il:t2")],
             [B("🗣️  Part 2", "il:p2"), B("🗣️  Part 3", "il:p3")],
             [B("‹ Practice", "m:practice"), B("🏠 Home", "m:home")],
+        ]
+    )
+
+
+def exam_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [B("⚡  Quick test  ·  10 new Qs", "t:quick")],
+            [B("📋  Level test  ·  15 new Qs", "t:level")],
+            [B("🌱  Basic grammar test  ·  12 Qs", "t:basic")],
+            [B("🌈  Mixed test  ·  20 Qs", "t:mixed")],
+            [B("🏠 Home", "m:home")],
+        ]
+    )
+
+
+def rules_kb() -> InlineKeyboardMarkup:
+    from .curriculum.grammar_rules import BASIC_RULES
+
+    rows: list[list[InlineKeyboardButton]] = []
+    for i, rule in enumerate(BASIC_RULES, start=1):
+        rows.append([B(f"{i}. {rule.title}", f"rule:{rule.id}")])
+    rows.append([B("📝  Basic grammar test", "t:basic"), B("🏠 Home", "m:home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def rule_open_kb(rule_id: str) -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [B("✅  Try 3 questions", f"ruleq:{rule_id}")],
+            [B("‹ All rules", "m:rules"), B("🏠 Home", "m:home")],
+        ]
+    )
+
+
+def exam_done_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [B("📝  New different test", "m:test")],
+            [B("📘  Grammar rules", "m:rules"), B("🏠 Home", "m:home")],
         ]
     )
 

@@ -21,6 +21,8 @@ Units unlock one by one. Finish a lesson → the next one opens.
 
 - **Home** — streak, XP, progress bar, today’s lesson
 - **Continue** — one tap to the next unlocked unit
+- **📝 Test** — a **new paper every time** (code like `EL-A1B2`). Quick / level / basic / mixed
+- **📘 Rules** — 12 basic grammar cards (am/is/are, a/an, present, can, past…)
 - **Course map** — every level, ✅ ▶ 🔒
 - **Practice** — words, grammar, reading, listen & read, writing, speaking, IELTS
 - **Tutor** — Grok corrects your English at your level

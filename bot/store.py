@@ -77,9 +77,22 @@ class Store:
                 created_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS exams (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER NOT NULL,
+                exam_id TEXT NOT NULL,
+                kind TEXT NOT NULL,
+                level TEXT NOT NULL,
+                score INTEGER NOT NULL,
+                total INTEGER NOT NULL,
+                item_ids TEXT NOT NULL DEFAULT '[]',
+                created_at TEXT NOT NULL
+            );
+
             CREATE INDEX IF NOT EXISTS idx_cards_due ON cards(telegram_id, due_on);
             CREATE INDEX IF NOT EXISTS idx_attempts_user ON attempts(telegram_id, kind);
             CREATE INDEX IF NOT EXISTS idx_chat_user ON chat_log(telegram_id, id);
+            CREATE INDEX IF NOT EXISTS idx_exams_user ON exams(telegram_id, id);
             """
         )
         self._conn.commit()
@@ -299,3 +312,54 @@ class Store:
 
     def clear_chat(self, telegram_id: int) -> None:
         self._execute("DELETE FROM chat_log WHERE telegram_id = ?", (telegram_id,))
+
+    def save_exam(
+        self,
+        telegram_id: int,
+        exam_id: str,
+        kind: str,
+        level: str,
+        score: int,
+        total: int,
+        item_ids: list[str],
+    ) -> None:
+        self._execute(
+            """
+            INSERT INTO exams (telegram_id, exam_id, kind, level, score, total, item_ids, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (telegram_id, exam_id, kind, level, score, total, json.dumps(item_ids), _now()),
+        )
+
+    def list_exams(self, telegram_id: int, limit: int = 5) -> list[dict[str, Any]]:
+        rows = self._fetchall(
+            """
+            SELECT exam_id, kind, level, score, total, created_at
+            FROM exams WHERE telegram_id = ?
+            ORDER BY id DESC LIMIT ?
+            """,
+            (telegram_id, limit),
+        )
+        return [dict(r) for r in rows]
+
+    def exam_count(self, telegram_id: int) -> int:
+        row = self._fetchone("SELECT COUNT(*) AS n FROM exams WHERE telegram_id = ?", (telegram_id,))
+        return int(row["n"] if row else 0)
+
+    def recent_exam_item_ids(self, telegram_id: int, limit: int = 8) -> list[str]:
+        rows = self._fetchall(
+            """
+            SELECT item_ids FROM exams WHERE telegram_id = ?
+            ORDER BY id DESC LIMIT ?
+            """,
+            (telegram_id, limit),
+        )
+        out: list[str] = []
+        for row in rows:
+            try:
+                ids = json.loads(row["item_ids"] or "[]")
+            except json.JSONDecodeError:
+                ids = []
+            if isinstance(ids, list):
+                out.extend(str(x) for x in ids)
+        return out

@@ -18,8 +18,10 @@ from .handlers import (
     cmd_help,
     cmd_level,
     cmd_menu,
+    cmd_rules,
     cmd_start,
     cmd_stats,
+    cmd_test,
     on_callback,
     on_text,
     on_voice,
@@ -34,6 +36,8 @@ async def post_init(app: Application) -> None:
         [
             BotCommand("start", "Open the course"),
             BotCommand("menu", "Home dashboard"),
+            BotCommand("test", "Take a new unique test"),
+            BotCommand("rules", "Basic grammar rules"),
             BotCommand("level", "Choose A1 → IELTS"),
             BotCommand("stats", "XP, streak, course %"),
             BotCommand("help", "How to learn"),
@@ -66,6 +70,8 @@ def build_app(token: str | None = None) -> Application:
     app.add_handler(CommandHandler("menu", cmd_menu))
     app.add_handler(CommandHandler("level", cmd_level))
     app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("test", cmd_test))
+    app.add_handler(CommandHandler("rules", cmd_rules))
     app.add_handler(CommandHandler("cancel", cmd_cancel))
     app.add_handler(CallbackQueryHandler(on_callback))
     app.add_handler(MessageHandler(filters.VOICE | filters.AUDIO, on_voice))
