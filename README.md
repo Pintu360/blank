@@ -51,6 +51,22 @@ TELEGRAM_BOT_TOKEN=123456:ABC...
 
 Open the bot in Telegram → **Start** → **Start from zero** or **Find my level**.
 
+## Deploy on Railway
+
+This is a **worker** (long polling), not a website. Do not set a public HTTP port.
+
+1. Push this repo (already on GitHub).
+2. [Railway](https://railway.app) → **New project** → **Deploy from GitHub** → `Pintu360/blank`.
+3. Variables → add:
+
+```
+TELEGRAM_BOT_TOKEN=123456:ABC...
+```
+
+4. Deploy. Start command is `python run.py` (see `Procfile` + `railway.toml`).
+
+If Railway marks the service as “web” and it dies, switch it to a **worker** service. No `PORT` is required.
+
 ## Tests
 
 ```powershell
