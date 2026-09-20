@@ -2,44 +2,77 @@ from __future__ import annotations
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
 
+from .curriculum.lessons import get_lesson, lessons_for_level
 from .curriculum.levels import LEVELS, LEVEL_META
+from .curriculum.models import Question
+from .ui import LEVEL_EMOJI, lesson_unlocked
 
+BTN_CONTINUE = "▶ Continue"
+BTN_COURSE = "🗺 Course"
+BTN_PRACTICE = "🎯 Practice"
+BTN_TUTOR = "💬 Tutor"
+BTN_ME = "👤 Me"
+
+# Keep old labels so existing chats still work
 BTN_LESSON = "📚 Lesson"
 BTN_VOCAB = "🧠 Vocab"
 BTN_GRAMMAR = "✏️ Grammar"
 BTN_READ = "📖 Reading"
 BTN_WRITE = "✍️ Writing"
 BTN_SPEAK = "🗣️ Speaking"
-BTN_TUTOR = "💬 Tutor"
 BTN_IELTS = "🎯 IELTS"
 BTN_PROGRESS = "📊 Progress"
 BTN_SETTINGS = "⚙️ Settings"
 BTN_MENU = "🏠 Menu"
 
 MAIN_ROWS = (
-    (BTN_LESSON, BTN_VOCAB),
-    (BTN_GRAMMAR, BTN_READ),
-    (BTN_WRITE, BTN_SPEAK),
-    (BTN_TUTOR, BTN_IELTS),
-    (BTN_PROGRESS, BTN_SETTINGS),
+    (BTN_CONTINUE,),
+    (BTN_COURSE, BTN_PRACTICE),
+    (BTN_TUTOR, BTN_ME),
 )
 
-MAIN_KEYBOARD = ReplyKeyboardMarkup(MAIN_ROWS, resize_keyboard=True)
+MAIN_KEYBOARD = ReplyKeyboardMarkup(MAIN_ROWS, resize_keyboard=True, is_persistent=True)
 
-BUTTONS = {btn for row in MAIN_ROWS for btn in row} | {BTN_MENU}
+BUTTONS = {btn for row in MAIN_ROWS for btn in row} | {
+    BTN_MENU,
+    BTN_LESSON,
+    BTN_VOCAB,
+    BTN_GRAMMAR,
+    BTN_READ,
+    BTN_WRITE,
+    BTN_SPEAK,
+    BTN_IELTS,
+    BTN_PROGRESS,
+    BTN_SETTINGS,
+}
 
 
 def main_kb() -> ReplyKeyboardMarkup:
     return MAIN_KEYBOARD
 
 
+def B(text: str, data: str) -> InlineKeyboardButton:
+    return InlineKeyboardButton(text, callback_data=data)
+
+
+def home_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [B("▶  Continue lesson", "m:continue")],
+            [B("🗺  Course map", "m:map"), B("🎯  Practice", "m:practice")],
+            [B("💬  Tutor", "m:tutor"), B("👤  Progress", "m:me")],
+            [B("⚙️  Settings", "m:set")],
+        ]
+    )
+
+
 def onboarding_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("📝 Placement test — লেভেল মাপো", callback_data="ob:place")],
-            [InlineKeyboardButton("🌱 আমি একদম নতুন (A1)", callback_data="ob:A1")],
-            [InlineKeyboardButton("🎯 IELTS টার্গেট", callback_data="ob:IELTS")],
-            [InlineKeyboardButton("📂 নিজে লেভেল বাছো", callback_data="ob:pick")],
+            [B("📝  Find my level  ·  লেভেল মাপো", "ob:place")],
+            [B("🌱  Start from zero  ·  A1", "ob:A1")],
+            [B("🏆  I want IELTS", "ob:IELTS")],
+            [B("📂  Choose a level", "ob:pick")],
         ]
     )
 
@@ -48,41 +81,81 @@ def levels_kb(prefix: str = "lvl") -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     row: list[InlineKeyboardButton] = []
     for level in LEVELS:
-        meta = LEVEL_META[level]
-        row.append(InlineKeyboardButton(f"{level} {meta['name']}", callback_data=f"{prefix}:{level}"))
-        if len(row) == 2:
+        emoji = LEVEL_EMOJI.get(level, "📘")
+        label = f"{emoji} {level}"
+        row.append(B(label, f"{prefix}:{level}"))
+        if len(row) == 3:
             rows.append(row)
             row = []
     if row:
         rows.append(row)
-    rows.append([InlineKeyboardButton("🏠 Menu", callback_data="m:home")])
+    rows.append([B("🏠 Home", "m:home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def course_kb() -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    row: list[InlineKeyboardButton] = []
+    for level in LEVELS:
+        row.append(B(f"{LEVEL_EMOJI.get(level, '📘')} {level}", f"map:{level}"))
+        if len(row) == 3:
+            rows.append(row)
+            row = []
+    if row:
+        rows.append(row)
+    rows.append([B("🏠 Home", "m:home")])
+    return InlineKeyboardMarkup(rows)
+
+
+def level_lessons_kb(level: str, completed: list[str]) -> InlineKeyboardMarkup:
+    lessons = lessons_for_level(level)
+    rows: list[list[InlineKeyboardButton]] = []
+    for les in lessons:
+        short = les.title.split("—")[0].strip()
+        if len(short) > 28:
+            short = short[:27] + "…"
+        if les.id in completed:
+            label = f"✅ {les.unit}. {short}"
+        elif lesson_unlocked(lessons, les.id, completed):
+            label = f"▶ {les.unit}. {short}"
+        else:
+            label = f"🔒 {les.unit}. {short}"
+        rows.append([B(label, f"lsn:open:{les.id}")])
+    rows.append([B("‹ Course", "m:map"), B("🏠 Home", "m:home")])
     return InlineKeyboardMarkup(rows)
 
 
 def after_teach_kb(lesson_id: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("✅ Practice quiz", callback_data=f"lsn:quiz:{lesson_id}")],
-            [InlineKeyboardButton("🏠 Menu", callback_data="m:home")],
+            [B("✅  Start quiz", f"lsn:quiz:{lesson_id}")],
+            [B("🗺  Course", f"map:{ (get_lesson(lesson_id).level if get_lesson(lesson_id) else 'A1') }"), B("🏠 Home", "m:home")],
         ]
     )
 
 
-def mcq_kb(n: int) -> InlineKeyboardMarkup:
-    labels = "ABCD"
-    buttons = [InlineKeyboardButton(labels[i], callback_data=f"ans:{i}") for i in range(n)]
-    return InlineKeyboardMarkup([buttons, [InlineKeyboardButton("⏭ Skip", callback_data="ans:skip")]])
+def mcq_kb(q: Question) -> InlineKeyboardMarkup:
+    rows: list[list[InlineKeyboardButton]] = []
+    if q.options:
+        for i, opt in enumerate(q.options):
+            label = opt if len(opt) <= 56 else opt[:55] + "…"
+            rows.append([B(label, f"ans:{i}")])
+    else:
+        rows.append([B("💡 Hint", "ans:hint")])
+    rows.append([B("⏭ Skip", "ans:skip"), B("🏠 Home", "m:home")])
+    return InlineKeyboardMarkup(rows)
 
 
 def vocab_rate_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
             [
-                InlineKeyboardButton("Again", callback_data="v:1"),
-                InlineKeyboardButton("Hard", callback_data="v:3"),
-                InlineKeyboardButton("Good", callback_data="v:4"),
-                InlineKeyboardButton("Easy", callback_data="v:5"),
-            ]
+                B("🔁 Again", "v:1"),
+                B("😅 Hard", "v:3"),
+                B("👍 Good", "v:4"),
+                B("⚡ Easy", "v:5"),
+            ],
+            [B("🏠 Home", "m:home")],
         ]
     )
 
@@ -90,26 +163,34 @@ def vocab_rate_kb() -> InlineKeyboardMarkup:
 def reveal_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("👁 Show meaning — অর্থ দেখাও", callback_data="v:show")],
-            [InlineKeyboardButton("⏭ Skip", callback_data="v:skip")],
+            [B("👁  Show meaning  ·  অর্থ", "v:show")],
+            [B("⏭ Skip", "v:skip"), B("🏠 Home", "m:home")],
         ]
     )
 
 
-def settings_kb() -> InlineKeyboardMarkup:
+def practice_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("📈 Change level", callback_data="set:level")],
-            [
-                InlineKeyboardButton("🇧🇩 Bangla help", callback_data="set:bn"),
-                InlineKeyboardButton("🇬🇧 English only", callback_data="set:en"),
-            ],
-            [
-                InlineKeyboardButton("Goal 6.0", callback_data="set:g6"),
-                InlineKeyboardButton("Goal 7.0", callback_data="set:g7"),
-                InlineKeyboardButton("Goal 8.0", callback_data="set:g8"),
-            ],
-            [InlineKeyboardButton("🏠 Menu", callback_data="m:home")],
+            [B("🧠  Words", "p:vocab"), B("✏️  Grammar", "p:grammar")],
+            [B("📖  Reading", "p:read"), B("🎧  Listen & read", "p:listen")],
+            [B("✍️  Writing", "p:write"), B("🗣️  Speaking", "p:speak")],
+            [B("🏆  IELTS gym", "p:ielts")],
+            [B("🏠 Home", "m:home")],
+        ]
+    )
+
+
+def settings_kb(row: dict | None = None) -> InlineKeyboardMarkup:
+    lang = (row or {}).get("native_lang", "bn")
+    bn = "🇧🇩 Bangla · ON" if str(lang).lower() in {"bn", "bangla", "bengali"} else "🇧🇩 Bangla help"
+    en = "🇬🇧 English only · ON" if str(lang).lower() in {"en", "english"} else "🇬🇧 English only"
+    return InlineKeyboardMarkup(
+        [
+            [B("📈  Change level", "set:level")],
+            [B(bn, "set:bn"), B(en, "set:en")],
+            [B("Goal 6.0", "set:g6"), B("Goal 7.0", "set:g7"), B("Goal 8.0", "set:g8")],
+            [B("🏠 Home", "m:home")],
         ]
     )
 
@@ -117,16 +198,23 @@ def settings_kb() -> InlineKeyboardMarkup:
 def ielts_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [InlineKeyboardButton("📚 IELTS lessons", callback_data="m:lesson")],
-            [InlineKeyboardButton("📖 Reading", callback_data="il:read")],
-            [InlineKeyboardButton("✍️ Task 1", callback_data="il:t1")],
-            [InlineKeyboardButton("✍️ Task 2", callback_data="il:t2")],
-            [InlineKeyboardButton("🗣️ Part 2 cue card", callback_data="il:p2")],
-            [InlineKeyboardButton("🗣️ Part 3", callback_data="il:p3")],
-            [InlineKeyboardButton("🏠 Menu", callback_data="m:home")],
+            [B("📚  IELTS lessons", "map:IELTS")],
+            [B("📖  Reading", "il:read")],
+            [B("✍️  Task 1", "il:t1"), B("✍️  Task 2", "il:t2")],
+            [B("🗣️  Part 2", "il:p2"), B("🗣️  Part 3", "il:p3")],
+            [B("‹ Practice", "m:practice"), B("🏠 Home", "m:home")],
         ]
     )
 
 
 def stop_kb() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup([[InlineKeyboardButton("⏹ Finish & menu", callback_data="m:home")]])
+    return InlineKeyboardMarkup([[B("⏹  Finish", "m:home")]])
+
+
+def done_kb(level: str | None = None) -> InlineKeyboardMarkup:
+    rows = [[B("▶  Continue", "m:continue")]]
+    if level:
+        rows.append([B("🗺  This level", f"map:{level}"), B("🏠 Home", "m:home")])
+    else:
+        rows.append([B("🏠 Home", "m:home")])
+    return InlineKeyboardMarkup(rows)

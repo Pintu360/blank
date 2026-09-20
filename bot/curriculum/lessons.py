@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .lessons_extra import EXTRA_LESSONS
 from .models import Lesson, q_fill, q_mcq
 
 LESSONS: tuple[Lesson, ...] = (
@@ -954,7 +955,7 @@ LESSONS: tuple[Lesson, ...] = (
             q_mcq("Pronunciation goal:", ["copy a film star perfectly", "clear stress and chunking", "speak as fast as possible"], 1, "clarity over accent theatre."),
         ),
     ),
-)
+) + EXTRA_LESSONS
 
 
 def lessons_for_level(level: str) -> list[Lesson]:

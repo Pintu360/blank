@@ -32,12 +32,12 @@ log = logging.getLogger("english-ladder")
 async def post_init(app: Application) -> None:
     await app.bot.set_my_commands(
         [
-            BotCommand("start", "Open English Ladder"),
-            BotCommand("menu", "Main menu"),
-            BotCommand("level", "Choose A1–IELTS"),
-            BotCommand("stats", "XP, streak, accuracy"),
-            BotCommand("help", "How the bot works"),
-            BotCommand("cancel", "Stop a quiz or tutor"),
+            BotCommand("start", "Open the course"),
+            BotCommand("menu", "Home dashboard"),
+            BotCommand("level", "Choose A1 → IELTS"),
+            BotCommand("stats", "XP, streak, course %"),
+            BotCommand("help", "How to learn"),
+            BotCommand("cancel", "Stop and go home"),
         ]
     )
 

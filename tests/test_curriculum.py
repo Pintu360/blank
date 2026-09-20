@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from bot.curriculum.lessons import LESSONS, get_lesson, lessons_for_level, next_lesson
+from bot.ui import bar, lesson_unlocked, stars
 from bot.curriculum.levels import LEVELS
 from bot.curriculum.placement import PLACEMENT, PLACEMENT_LEVELS, place_from_results
 from bot.curriculum.reading import READINGS
@@ -76,3 +77,21 @@ def test_answer_matching() -> None:
     assert answers_match("I'll|I will", "I will")
     assert answers_match("mustn't|must not", "must not")
     assert not answers_match("am", "is")
+
+
+def test_beginner_track_has_time_places_can() -> None:
+    ids = {les.id for les in lessons_for_level("A1")}
+    assert {"a1-06", "a1-07", "a1-08"} <= ids
+    assert get_lesson("a1-08") is not None
+
+
+def test_progress_bar_and_unlock() -> None:
+    assert bar(0, 8) == "▱" * 8
+    assert bar(8, 8) == "▰" * 8
+    assert stars(4, 4) == "⭐" * 5
+    pack = lessons_for_level("A1")
+    first = pack[0]
+    second = pack[1]
+    assert lesson_unlocked(pack, first.id, [])
+    assert not lesson_unlocked(pack, second.id, [])
+    assert lesson_unlocked(pack, second.id, [first.id])

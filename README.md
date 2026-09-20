@@ -1,69 +1,57 @@
 # English Ladder
 
-A Telegram bot that takes **Bangladeshi learners** from **A1 English** (hello, am/is/are) to **IELTS Band 9**.
+A full English **course** on Telegram — **zero to advanced**, then **IELTS Band 9**. Built for anyone (Bangla help on by default).
 
-Lessons, quizzes, and vocab work **offline** (no AI key). The tutor, writing examiner, and speaking examiner use **SpaceXAI / xAI Grok** when `XAI_API_KEY` is set.
+Tap buttons. You only type for writing, speaking, and the tutor.
 
-## What you get
+## Course path
 
-| Track | CEFR | IELTS | Focus |
-| --- | --- | --- | --- |
-| Beginner | A1 | 3.0–3.5 | Greetings, family, food, present simple — with **Bangla glosses** |
-| Elementary | A2 | 4.0–4.5 | Past, market English, comparatives, will / going to |
-| Intermediate | B1 | 5.0–5.5 | Present perfect, conditionals, opinions, relative clauses |
-| Upper-int | B2 | 6.0–6.5 | Passive, reported speech, collocations, cohesion |
-| Advanced | C1 | 7.0–8.0 | Inversion, hedging, nominalisation, PEEL essays |
-| Exam | IELTS | 6.0–9.0 | Reading TFNG, Task 1/2, Speaking Parts 2–3 |
+| | Level | You can… |
+| --- | --- | --- |
+| 🌱 | **A1 Beginner** | Hello, family, food, time, places, *can / can't* |
+| 🌿 | **A2 Elementary** | Past, shopping, comparisons, directions, future |
+| 🌳 | **B1 Intermediate** | Experiences, opinions, interviews, conditionals |
+| 🏔️ | **B2 Upper-int** | Passive, reported speech, academic collocations |
+| 🎯 | **C1 Advanced** | Hedging, inversion, PEEL essays, precise lexis |
+| 🏆 | **IELTS** | Reading TFNG, Task 1 & 2, Speaking Parts 2–3 |
 
-Examples use Bangladesh (Dhaka, monsoon, cricket, remittances, Sundarbans) so the English is usable at home, not only in a UK textbook.
+Units unlock one by one. Finish a lesson → the next one opens.
+
+## App-style UI
+
+- **Home** — streak, XP, progress bar, today’s lesson
+- **Continue** — one tap to the next unlocked unit
+- **Course map** — every level, ✅ ▶ 🔒
+- **Practice** — words, grammar, reading, listen & read, writing, speaking, IELTS
+- **Tutor** — Grok corrects your English at your level
+- Quizzes are **tap the answer**, not A/B/C/D codes
+
+Lessons and quizzes work without an AI key. Tutor / writing / speaking need `XAI_API_KEY`.
 
 ## Setup
 
-1. Create a bot with [@BotFather](https://t.me/BotFather) and copy the token.
-2. (Optional, for the AI tutor) Create an xAI key at [console.x.ai](https://console.x.ai).
-3. Install and configure:
+1. [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token  
+2. Optional tutor key: [console.x.ai](https://console.x.ai)
 
 ```powershell
 cd C:\Users\DELL\english-ladder-bot
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 copy .env.example .env
+notepad .env
+python run.py
 ```
 
-Edit `.env`:
+`.env`:
 
 ```
 TELEGRAM_BOT_TOKEN=123456:ABC...
 XAI_API_KEY=xai-...
 ```
 
-4. Run:
-
-```powershell
-python run.py
-```
-
-Open Telegram, find your bot, tap **Start**.
-
-## Daily path
-
-1. **Placement test** once (or pick A1 if you are new).
-2. **📚 Lesson** — teach + 4-question quiz.
-3. **🧠 Vocab** — spaced repetition (Again / Hard / Good / Easy).
-4. **✍️ Writing** and **🗣️ Speaking** — Grok marks like a teacher / IELTS examiner.
-5. From B2 onward, use **🎯 IELTS** for Task 1, Task 2, and cue cards.
-
-`/stats` shows XP, streak, lesson count, and quiz accuracy.
-
-## Settings
-
-- Bangla help on (default) or English-only feedback
-- Goal band 6.0 / 7.0 / 8.0
-- Jump levels if the placement test was wrong
+Open the bot in Telegram → **Start** → **Start from zero** or **Find my level**.
 
 ## Tests
 
 ```powershell
-pytest -q
+python -m pytest -q tests
 ```
