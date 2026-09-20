@@ -91,8 +91,6 @@ def main() -> None:
         for item in problems:
             log.error(item)
         raise SystemExit(1)
-    if not config.XAI_API_KEY:
-        log.warning("XAI_API_KEY missing — tutor/writing/speaking AI feedback is off")
     app = build_app()
     log.info("English Ladder polling…")
     app.run_polling(allowed_updates=Update.ALL_TYPES)

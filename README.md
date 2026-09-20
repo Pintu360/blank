@@ -2,6 +2,8 @@
 
 A full English **course** on Telegram — **zero to advanced**, then **IELTS Band 9**. Built for anyone (Bangla help on by default).
 
+**No xAI / OpenAI key.** Only a Telegram bot token.
+
 Tap buttons. You only type for writing, speaking, and the tutor.
 
 ## Course path
@@ -25,15 +27,12 @@ Units unlock one by one. Finish a lesson → the next one opens.
 - **📘 Rules** — 12 basic grammar cards (am/is/are, a/an, present, can, past…)
 - **Course map** — every level, ✅ ▶ 🔒
 - **Practice** — words, grammar, reading, listen & read, writing, speaking, IELTS
-- **Tutor** — Grok corrects your English at your level
+- **Tutor** — offline sentence checker + word/grammar lookup
 - Quizzes are **tap the answer**, not A/B/C/D codes
-
-Lessons and quizzes work without an AI key. Tutor / writing / speaking need `XAI_API_KEY`.
 
 ## Setup
 
-1. [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token  
-2. Optional tutor key: [console.x.ai](https://console.x.ai)
+1. [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token
 
 ```powershell
 cd C:\Users\DELL\english-ladder-bot
@@ -47,7 +46,6 @@ python run.py
 
 ```
 TELEGRAM_BOT_TOKEN=123456:ABC...
-XAI_API_KEY=xai-...
 ```
 
 Open the bot in Telegram → **Start** → **Start from zero** or **Find my level**.

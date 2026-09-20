@@ -14,9 +14,6 @@ DATA_DIR.mkdir(exist_ok=True)
 DB_PATH = DATA_DIR / "english.sqlite3"
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-XAI_API_KEY = os.getenv("XAI_API_KEY", "").strip()
-XAI_BASE_URL = os.getenv("XAI_BASE_URL", "https://api.x.ai/v1").strip() or "https://api.x.ai/v1"
-XAI_MODEL = os.getenv("XAI_MODEL", "grok-4.6").strip() or "grok-4.6"
 
 
 def _parse_ids(raw: str) -> set[int]:

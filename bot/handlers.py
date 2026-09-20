@@ -839,10 +839,10 @@ async def start_tutor(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         update,
         tr(
             row,
-            f"<b>Tutor</b> · {row['level']}\nWrite in English. I will correct you gently.\n"
-            "Try: <i>Check this: I go yesterday market.</i>",
-            f"<b>Tutor</b> · {row['level']}\nইংরেজিতে লিখুন। আমি শুধরে দেব।\n"
-            "চেষ্টা: <i>Check this: I go yesterday market.</i>",
+            f"<b>Tutor</b> · {row['level']}\nWorks offline. Send a sentence — I correct it.\n"
+            "Try: <i>I go yesterday market.</i>  or  <i>what is however</i>",
+            f"<b>Tutor</b> · {row['level']}\nঅফলাইন। একটি বাক্য লিখুন — আমি শুধরে দেব।\n"
+            "চেষ্টা: <i>I go yesterday market.</i>  বা  <i>what is however</i>",
         ),
         stop_kb(),
         edit=False,
