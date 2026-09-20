@@ -12,7 +12,8 @@ BTN_TEST = "📝 Test"
 BTN_COURSE = "🗺 Course"
 BTN_RULES = "📘 Rules"
 BTN_PRACTICE = "🎯 Practice"
-BTN_TUTOR = "💬 Tutor"
+BTN_TUTOR = "👩‍🏫 Teacher"
+BTN_TUTOR_OLD = "💬 Tutor"
 BTN_ME = "👤 Me"
 
 # Keep old labels so existing chats still work
@@ -47,6 +48,7 @@ BUTTONS = {btn for row in MAIN_ROWS for btn in row} | {
     BTN_IELTS,
     BTN_PROGRESS,
     BTN_SETTINGS,
+    BTN_TUTOR_OLD,
 }
 
 
@@ -61,11 +63,11 @@ def B(text: str, data: str) -> InlineKeyboardButton:
 def home_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
+            [B("👩‍🏫  Teacher — new test", "m:teacher")],
             [B("▶  Continue lesson", "m:continue")],
             [B("📝  Take a test", "m:test"), B("📘  Grammar rules", "m:rules")],
             [B("🗺  Course map", "m:map"), B("🎯  Practice", "m:practice")],
-            [B("💬  Tutor", "m:tutor"), B("👤  Progress", "m:me")],
-            [B("⚙️  Settings", "m:set")],
+            [B("👤  Progress", "m:me"), B("⚙️  Settings", "m:set")],
         ]
     )
 
@@ -215,11 +217,32 @@ def ielts_kb() -> InlineKeyboardMarkup:
 def exam_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
+            [B("👩‍🏫  Teacher test  ·  8 new Qs", "t:teacher")],
             [B("⚡  Quick test  ·  10 new Qs", "t:quick")],
             [B("📋  Level test  ·  15 new Qs", "t:level")],
             [B("🌱  Basic grammar test  ·  12 Qs", "t:basic")],
             [B("🌈  Mixed test  ·  20 Qs", "t:mixed")],
             [B("🏠 Home", "m:home")],
+        ]
+    )
+
+
+def teacher_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [B("📖  Teach this + new test", "th:teach")],
+            [B("📝  Surprise new test", "th:test")],
+            [B("⏭  Next topic", "th:next"), B("✍️  Check a sentence", "m:tutor")],
+            [B("🏠 Home", "m:home")],
+        ]
+    )
+
+
+def teacher_after_teach_kb() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        [
+            [B("✅  Start a NEW test on this", "th:test")],
+            [B("⏭  Next topic", "th:next"), B("🏠 Home", "m:home")],
         ]
     )
 
@@ -246,7 +269,8 @@ def rule_open_kb(rule_id: str) -> InlineKeyboardMarkup:
 def exam_done_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         [
-            [B("📝  New different test", "m:test")],
+            [B("👩‍🏫  Another NEW teacher test", "th:test")],
+            [B("📝  More tests", "m:test")],
             [B("📘  Grammar rules", "m:rules"), B("🏠 Home", "m:home")],
         ]
     )

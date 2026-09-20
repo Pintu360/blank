@@ -96,6 +96,7 @@ KINDS = {
     "level": 15,
     "basic": 12,
     "mixed": 20,
+    "teacher": 8,
 }
 
 
@@ -137,22 +138,45 @@ def build_exam(
     kind: str,
     seed: str,
     avoid_ids: list[str] | None = None,
+    topic: str | None = None,
 ) -> Exam:
+    from .generator import generate_items
+
     n = KINDS.get(kind, 10)
-    allowed = set(_levels_for(kind, level))
     avoid = set(avoid_ids or [])
-    pool = [(qid, lvl, q) for qid, lvl, q in BANK if lvl in allowed]
-    fresh = [row for row in pool if row[0] not in avoid]
-    use = fresh if len(fresh) >= n else pool
     rng = random.Random(seed)
-    rng.shuffle(use)
-    picked = use[:n]
-    # If the bank is huge, a second shuffle of options makes the paper unique
-    items = []
-    for qid, lvl, q in picked:
-        items.append(ExamItem(id=qid, level=lvl, question=shuffle_question(q, rng)))
+    items: list[ExamItem] = []
+    if kind == "basic":
+        items.extend(generate_items("A1", n // 2 + 2, rng, avoid_ids=avoid))
+        items.extend(generate_items("A2", n, rng, avoid_ids=avoid | {it.id for it in items}))
+    elif kind == "mixed":
+        for lv in _levels_for("mixed", level):
+            items.extend(generate_items(lv, max(4, n // 3 + 1), rng, avoid_ids=avoid | {it.id for it in items}))
+    else:
+        gen_level = level if kind != "basic" else "A1"
+        items.extend(generate_items(gen_level, n, rng, topic=topic, avoid_ids=avoid))
+
+    uniq: list[ExamItem] = []
+    seen_prompts: set[str] = set()
+    for it in items:
+        if it.question.prompt in seen_prompts:
+            continue
+        seen_prompts.add(it.question.prompt)
+        uniq.append(it)
+    rng.shuffle(uniq)
+    items = uniq[:n]
+
+    if len(items) < n:
+        allowed = set(_levels_for(kind if kind != "teacher" else "quick", level))
+        pool = [(qid, lvl, q) for qid, lvl, q in BANK if lvl in allowed and qid not in avoid]
+        rng.shuffle(pool)
+        for qid, lvl, q in pool:
+            if len(items) >= n:
+                break
+            items.append(ExamItem(id=qid, level=lvl, question=shuffle_question(q, rng)))
+
     exam_id = _code(seed)
-    return Exam(exam_id=exam_id, kind=kind, level=level, seed=seed, items=tuple(items))
+    return Exam(exam_id=exam_id, kind=kind, level=level, seed=seed, items=tuple(items[:n]))
 
 
 def dump_exam(exam: Exam) -> dict:

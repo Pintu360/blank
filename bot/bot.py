@@ -21,6 +21,7 @@ from .handlers import (
     cmd_rules,
     cmd_start,
     cmd_stats,
+    cmd_teacher,
     cmd_test,
     on_callback,
     on_text,
@@ -36,6 +37,7 @@ async def post_init(app: Application) -> None:
         [
             BotCommand("start", "Open the course"),
             BotCommand("menu", "Home dashboard"),
+            BotCommand("teacher", "Offline teacher — new test every time"),
             BotCommand("test", "Take a new unique test"),
             BotCommand("rules", "Basic grammar rules"),
             BotCommand("level", "Choose A1 → IELTS"),
@@ -70,6 +72,7 @@ def build_app(token: str | None = None) -> Application:
     app.add_handler(CommandHandler("menu", cmd_menu))
     app.add_handler(CommandHandler("level", cmd_level))
     app.add_handler(CommandHandler("stats", cmd_stats))
+    app.add_handler(CommandHandler("teacher", cmd_teacher))
     app.add_handler(CommandHandler("test", cmd_test))
     app.add_handler(CommandHandler("rules", cmd_rules))
     app.add_handler(CommandHandler("cancel", cmd_cancel))

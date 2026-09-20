@@ -10,6 +10,7 @@ from telegram.error import BadRequest
 from telegram.ext import ContextTypes
 
 from . import ai, config
+from . import teacher as teacher_mod
 from .curriculum.exams import Exam, ExamItem, KINDS, build_exam, dump_exam, load_questions, shuffle_question
 from .curriculum.grammar_rules import get_rule
 from .curriculum.lessons import LESSONS, get_lesson, lessons_for_level, next_lesson
@@ -35,6 +36,7 @@ from .keyboards import (
     BTN_SPEAK,
     BTN_TEST,
     BTN_TUTOR,
+    BTN_TUTOR_OLD,
     BTN_VOCAB,
     BTN_WRITE,
     BUTTONS,
@@ -56,6 +58,8 @@ from .keyboards import (
     rules_kb,
     settings_kb,
     stop_kb,
+    teacher_after_teach_kb,
+    teacher_kb,
     vocab_rate_kb,
 )
 from .store import Store
@@ -217,7 +221,8 @@ async def cmd_help(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
             row,
             "<b>How to learn</b>\n"
             "▶ Continue — next lesson in your course\n"
-            "📝 Test — a new paper every time\n"
+            "👩‍🏫 Teacher — teaches a point, then a NEW test every time\n"
+            "📝 Test — more unique papers\n"
             "📘 Rules — basic grammar (A1–A2)\n"
             "🗺 Course — every unit, locked until you finish the one before\n"
             "🎯 Practice — words, grammar, reading, writing, speaking, IELTS\n"
@@ -268,6 +273,12 @@ async def cmd_test(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
 async def cmd_rules(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     store_of(ctx).set_mode(uid_of(update), "idle")
     await send_rules(update, ctx)
+
+
+@guard
+async def cmd_teacher(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    store_of(ctx).set_mode(uid_of(update), "idle")
+    await send_teacher(update, ctx)
 
 
 async def send_home(update: Update, ctx: ContextTypes.DEFAULT_TYPE, edit: bool | None = None) -> None:
@@ -369,24 +380,75 @@ async def send_test_hub(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     await send_html(update, "\n".join(lines), exam_kb())
 
 
-async def start_exam(update: Update, ctx: ContextTypes.DEFAULT_TYPE, kind: str) -> None:
+async def start_exam(update: Update, ctx: ContextTypes.DEFAULT_TYPE, kind: str, topic: str | None = None) -> None:
     if kind not in KINDS:
         kind = "quick"
     db = store_of(ctx)
     tid = uid_of(update)
     row = user_row(update, ctx)
-    seed = f"{tid}:{kind}:{row['level']}:{time.time_ns()}:{db.exam_count(tid)}"
-    exam = build_exam(row["level"], kind, seed, db.recent_exam_item_ids(tid))
+    prev = db.payload(tid)
+    topic = topic or (prev.get("topic") if kind == "teacher" else None)
+    seed = f"{tid}:{kind}:{row['level']}:{topic}:{time.time_ns()}:{db.exam_count(tid)}"
+    exam = build_exam(row["level"], kind, seed, db.recent_exam_item_ids(tid), topic=topic)
     payload = dump_exam(exam)
+    if prev.get("teacher_n") is not None:
+        payload["teacher_n"] = prev["teacher_n"]
+    if topic:
+        payload["topic"] = topic
     db.set_mode(tid, "exam", payload)
     title = f"Test {exam.exam_id}"
     intro = tr(
         row,
-        f"Paper <b>{exam.exam_id}</b>  ·  {len(exam.items)} questions\nThis mix will not appear again the same way.",
-        f"প্রশ্নপত্র <b>{exam.exam_id}</b>  ·  {len(exam.items)}টা প্রশ্ন\nএই মিক্স আর একইভাবে আসবে না।",
+        f"Paper <b>{exam.exam_id}</b>  ·  {len(exam.items)} new questions\n"
+        "Minted now — names, places, and order will not match your last paper.",
+        f"প্রশ্নপত্র <b>{exam.exam_id}</b>  ·  {len(exam.items)}টা নতুন প্রশ্ন\n"
+        "এখন তৈরি — আগের পেপারের মতো হবে না।",
     )
     await send_html(update, intro)
     await send_current_q(update, ctx, load_questions(payload), 0, title)
+
+
+def _teacher_topic(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    db = store_of(ctx)
+    tid = uid_of(update)
+    row = user_row(update, ctx)
+    n = int(db.payload(tid).get("teacher_n") or db.exam_count(tid))
+    topic = teacher_mod.next_topic(row["level"], n)
+    return n, topic
+
+
+async def send_teacher(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    db = store_of(ctx)
+    tid = uid_of(update)
+    row = user_row(update, ctx)
+    n, topic = _teacher_topic(update, ctx)
+    db.set_mode(tid, "idle", {"teacher_n": n, "topic": topic.id})
+    await send_html(
+        update,
+        tr(
+            row,
+            f"👩‍🏫  <b>Teacher</b>  ·  {row['level']}\n"
+            "No API. I teach a point, then I mint a <b>new</b> test every time "
+            "(new names, cities, verbs).\n\n"
+            f"Today's topic: <b>{esc(topic.title)}</b>\n<i>{esc(topic.title_bn)}</i>",
+            f"👩‍🏫  <b>টিচার</b>  ·  {row['level']}\n"
+            "এপিআই লাগে না। আগে পড়াই, তারপর <b>নতুন</b> টেস্ট দেই।\n\n"
+            f"আজকের টপিক: <b>{esc(topic.title)}</b>\n<i>{esc(topic.title_bn)}</i>",
+        ),
+        teacher_kb(),
+    )
+
+
+async def send_teacher_teach(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+    n, topic = _teacher_topic(update, ctx)
+    store_of(ctx).set_mode(uid_of(update), "idle", {"teacher_n": n, "topic": topic.id})
+    body = teacher_mod.teach_text(topic)
+    await send_html(
+        update,
+        body + "\n\n" + tr(user_row(update, ctx), "Now take a brand-new test on this.", "এখন এই টপিকে নতুন টেস্ট দিন।"),
+        teacher_after_teach_kb(),
+        edit=False,
+    )
 
 
 async def send_rules(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
@@ -901,7 +963,8 @@ def _route_button(text: str) -> str | None:
         BTN_COURSE: "m:map",
         BTN_RULES: "m:rules",
         BTN_PRACTICE: "m:practice",
-        BTN_TUTOR: "m:tutor",
+        BTN_TUTOR: "m:teacher",
+        BTN_TUTOR_OLD: "m:teacher",
         BTN_ME: "m:me",
         BTN_MENU: "m:home",
         BTN_LESSON: "m:continue",
@@ -1002,6 +1065,22 @@ async def dispatch(update: Update, ctx: ContextTypes.DEFAULT_TYPE, data: str) ->
         return
     if data.startswith("rule:"):
         await open_rule(update, ctx, data.split(":", 1)[1])
+        return
+    if data == "m:teacher":
+        await send_teacher(update, ctx)
+        return
+    if data == "th:teach":
+        await send_teacher_teach(update, ctx)
+        return
+    if data == "th:test":
+        await start_exam(update, ctx, "teacher")
+        return
+    if data == "th:next":
+        db = store_of(ctx)
+        tid = uid_of(update)
+        n = int(db.payload(tid).get("teacher_n") or 0) + 1
+        db.set_mode(tid, "idle", {"teacher_n": n})
+        await send_teacher(update, ctx)
         return
     if data == "m:tutor":
         await start_tutor(update, ctx)

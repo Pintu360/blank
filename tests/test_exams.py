@@ -44,6 +44,28 @@ def test_bank_has_extra_papers() -> None:
     assert len(extra) >= 30
 
 
+def test_generator_mints_new_paper_every_seed() -> None:
+    from bot.curriculum.exams import build_exam
+
+    a = build_exam("A1", "teacher", "teacher-seed-1", [])
+    b = build_exam("A1", "teacher", "teacher-seed-2", [])
+    assert a.exam_id != b.exam_id
+    prompts_a = [item.question.prompt for item in a.items]
+    prompts_b = [item.question.prompt for item in b.items]
+    assert prompts_a != prompts_b
+    assert len(a.items) >= 6
+
+
+def test_teacher_topics_rotate() -> None:
+    from bot.teacher import next_topic
+
+    first = next_topic("A1", 0)
+    later = next_topic("A1", 1)
+    assert first.id
+    assert later.id
+    assert first.id != later.id or next_topic("A1", 2).id != first.id
+
+
 def test_grammar_rules_cover_basics() -> None:
     ids = {rule.id for rule in BASIC_RULES}
     assert {"be", "a-an", "present", "can", "past", "some-any"} <= ids

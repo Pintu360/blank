@@ -27,7 +27,8 @@ Units unlock one by one. Finish a lesson → the next one opens.
 - **📘 Rules** — 12 basic grammar cards (am/is/are, a/an, present, can, past…)
 - **Course map** — every level, ✅ ▶ 🔒
 - **Practice** — words, grammar, reading, listen & read, writing, speaking, IELTS
-- **Tutor** — offline sentence checker + word/grammar lookup
+- **👩‍🏫 Teacher** — offline. Teaches a grammar point, then **mints a new test every time** (new names, cities, verbs). `/teacher`
+- **Tutor** — type a sentence to check (from Teacher → Check a sentence)
 - Quizzes are **tap the answer**, not A/B/C/D codes
 
 ## Setup
